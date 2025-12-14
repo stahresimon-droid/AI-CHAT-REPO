@@ -17,7 +17,14 @@ app.use((req, res, next) => {
 });
 
 /**
- * 1) Health check (bra för Render)
+ * Root route (så du inte får "Cannot GET /")
+ */
+app.get("/", (req, res) => {
+  res.send("API is running ✅  Try /healthz");
+});
+
+/**
+ * Health check (bra för Render)
  * Testa i webbläsaren: https://din-url/healthz
  */
 app.get("/healthz", (req, res) => {
@@ -25,11 +32,8 @@ app.get("/healthz", (req, res) => {
 });
 
 /**
- * 2) Lead endpoint (för lead-maskin)
+ * Lead endpoint (för lead-maskin)
  * Tar emot lead och loggar det (sen kopplar vi mail / sheets)
- * Testa med curl/postman:
- * POST https://din-url/lead
- * body: { "name":"Test", "phone":"070...", "message":"Vill boka", "customerId":"naprapat-demo" }
  */
 app.post("/lead", async (req, res) => {
   try {
@@ -65,13 +69,7 @@ app.post("/lead", async (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    // Just nu: logga leadet (så du kan se det i Render Logs)
     console.log("NEW LEAD:", JSON.stringify(lead, null, 2));
-
-    // Senare kan vi lägga till:
-    // - skicka mail (Resend)
-    // - spara i Google Sheets
-    // - spara i databas
 
     return res.json({ ok: true });
   } catch (err) {
