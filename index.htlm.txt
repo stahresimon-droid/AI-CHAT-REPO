@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Min första AI-chat</title>
+    <style>
+      #chat-widget {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 320px;
+        height: 420px;
+        border-radius: 12px;
+        border: 1px solid #ddd;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+        font-family: system-ui, sans-serif;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        overflow: hidden;
+      }
+      #chat-header {
+        padding: 10px 12px;
+        font-weight: 600;
+        border-bottom: 1px solid #eee;
+      }
+      #chat-messages {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+        font-size: 14px;
+      }
+      .msg {
+        margin-bottom: 8px;
+        max-width: 80%;
+        padding: 6px 8px;
+        border-radius: 8px;
+      }
+      .msg.user {
+        margin-left: auto;
+        background: #e6f3ff;
+      }
+      .msg.ai {
+        margin-right: auto;
+        background: #f3f3f3;
+      }
+      #chat-input-wrapper {
+        display: flex;
+        border-top: 1px solid #eee;
+      }
+      #chat-input {
+        flex: 1;
+        border: none;
+        padding: 8px;
+        font-size: 14px;
+        outline: none;
+      }
+      #chat-send {
+        border: none;
+        padding: 0 14px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="chat-widget">
+      <div id="chat-header">Chatta med oss</div>
+      <div id="chat-messages"></div>
+      <div id="chat-input-wrapper">
+        <input id="chat-input" placeholder="Skriv ett meddelande..." />
+        <button id="chat-send">Skicka</button>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:3000/chat"; // vi fixar servern Dag 2
+      const sessionId = self.crypto?.randomUUID
+        ? self.crypto.randomUUID()
+        : String(Date.now());
+
+      const messagesEl = document.getElementById("chat-messages");
+      const inputEl = document.getElementById("chat-input");
+      const sendBtn = document.getElementById("chat-send");
+
+      function addMessage(text, sender) {
+        const div = document.createElement("div");
+        div.className = "msg " + sender;
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      async function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        addMessage(text, "user");
+        inputEl.value = "";
+
+        // Tillfälligt: svara dummy om servern inte är igång än
+        addMessage("AI är inte kopplad ännu (Dag 2 😄).", "ai");
+        // Dag 2: vi tar bort raden ovan och aktiverar fetch-anropet nedan.
+
+        /*
+        addMessage("...", "ai");
+        const loadingBubble = messagesEl.lastChild;
+
+        try {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text, sessionId }),
+          });
+          const data = await res.json();
+
+          messagesEl.removeChild(loadingBubble);
+          addMessage(data.reply || "Jag kunde inte svara just nu.", "ai");
+        } catch (err) {
+          console.error(err);
+          messagesEl.removeChild(loadingBubble);
+          addMessage("Fel vid kontakt med servern.", "ai");
+        }
+        */
+      }
+
+      sendBtn.addEventListener("click", sendMessage);
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendMessage();
+      });
+    </script>
+  </body>
+</html>
