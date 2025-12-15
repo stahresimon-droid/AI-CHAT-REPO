@@ -1,247 +1,154 @@
 <!DOCTYPE html>
 <html lang="sv">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Min första AI-chat</title>
-    <style>
-      #chat-widget {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 320px;
-        height: 420px;
-        border-radius: 12px;
-        border: 1px solid #ddd;
-        display: flex;
-        flex-direction: column;
-        background: #fff;
-        font-family: system-ui, sans-serif;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-        overflow: hidden;
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Bokningschat</title>
+  <style>
+    body { font-family: system-ui, sans-serif; }
+    #chat-widget {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 320px;
+      height: 420px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      overflow: hidden;
+    }
+    #chat-header {
+      padding: 10px;
+      font-weight: 600;
+      border-bottom: 1px solid #eee;
+    }
+    #chat-messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+    .msg {
+      margin-bottom: 8px;
+      max-width: 80%;
+      padding: 6px 8px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+    }
+    .user { margin-left: auto; background: #e6f3ff; }
+    .ai { margin-right: auto; background: #f3f3f3; }
+    #chat-input-wrapper {
+      display: flex;
+      border-top: 1px solid #eee;
+    }
+    #chat-input {
+      flex: 1;
+      border: none;
+      padding: 8px;
+      outline: none;
+    }
+    #chat-send {
+      border: none;
+      padding: 0 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+<div id="chat-widget">
+  <div id="chat-header">Boka tid</div>
+  <div id="chat-messages"></div>
+  <div id="chat-input-wrapper">
+    <input id="chat-input" placeholder="Skriv här..." />
+    <button id="chat-send">Skicka</button>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "https://ai-chat-box-html.onrender.com";
+
+  const sessionId = crypto.randomUUID();
+  const messagesEl = document.getElementById("chat-messages");
+  const inputEl = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("chat-send");
+
+  function addMessage(text, sender) {
+    const div = document.createElement("div");
+    div.className = "msg " + sender;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  let leadMode = false;
+  let step = 0;
+  let lead = {};
+
+  function bookingIntent(t) {
+    t = t.toLowerCase();
+    return ["boka", "tid", "pris", "kostar"].some(w => t.includes(w));
+  }
+
+  async function submitLead() {
+    await fetch(API_BASE + "/lead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lead)
+    });
+  }
+
+  async function chatAI(text) {
+    addMessage("...", "ai");
+    const bubble = messagesEl.lastChild;
+    const r = await fetch(API_BASE + "/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, sessionId })
+    });
+    const d = await r.json();
+    messagesEl.removeChild(bubble);
+    addMessage(d.reply || "Kan inte svara just nu", "ai");
+  }
+
+  async function handle(text) {
+    if (!leadMode && bookingIntent(text)) {
+      leadMode = true; step = 1;
+      addMessage("Toppen! Vad heter du?", "ai");
+      return;
+    }
+
+    if (leadMode) {
+      if (step === 1) { lead.name = text; step = 2; addMessage("Telefonnummer?", "ai"); return; }
+      if (step === 2) { lead.phone = text; step = 3; addMessage("Vad gäller besöket?", "ai"); return; }
+      if (step === 3) { lead.issue = text; step = 4; addMessage("När vill du komma?", "ai"); return; }
+      if (step === 4) {
+        lead.preferredTime = text;
+        lead.customerId = "naprapat-demo";
+        await submitLead();
+        addMessage("✅ Tack! Vi kontaktar dig inom kort.", "ai");
+        leadMode = false; step = 0; lead = {};
+        return;
       }
-      #chat-header {
-        padding: 10px 12px;
-        font-weight: 600;
-        border-bottom: 1px solid #eee;
-      }
-      #chat-messages {
-        flex: 1;
-        padding: 10px;
-        overflow-y: auto;
-        font-size: 14px;
-      }
-      .msg {
-        margin-bottom: 8px;
-        max-width: 80%;
-        padding: 6px 8px;
-        border-radius: 8px;
-        white-space: pre-wrap;
-      }
-      .msg.user {
-        margin-left: auto;
-        background: #e6f3ff;
-      }
-      .msg.ai {
-        margin-right: auto;
-        background: #f3f3f3;
-      }
-      #chat-input-wrapper {
-        display: flex;
-        border-top: 1px solid #eee;
-      }
-      #chat-input {
-        flex: 1;
-        border: none;
-        padding: 8px;
-        font-size: 14px;
-        outline: none;
-      }
-      #chat-send {
-        border: none;
-        padding: 0 14px;
-        cursor: pointer;
-      }
-    </style>
-  </head>
+    }
 
-  <body>
-    <div id="chat-widget">
-      <div id="chat-header">Chatta med oss</div>
-      <div id="chat-messages"></div>
-      <div id="chat-input-wrapper">
-        <input id="chat-input" placeholder="Skriv ett meddelande..." />
-        <button id="chat-send">Skicka</button>
-      </div>
-    </div>
+    await chatAI(text);
+  }
 
-    <script>
-      // ✅ Din live-API-bas (Render)
-      const API_BASE = "https://c-users-stahr-onedrive-desktop-ai-chat.onrender.com";
+  sendBtn.onclick = async () => {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    addMessage(text, "user");
+    inputEl.value = "";
+    await handle(text);
+  };
 
-      const sessionId = self.crypto?.randomUUID
-        ? self.crypto.randomUUID()
-        : String(Date.now());
+  inputEl.onkeydown = e => e.key === "Enter" && sendBtn.onclick();
 
-      const messagesEl = document.getElementById("chat-messages");
-      const inputEl = document.getElementById("chat-input");
-      const sendBtn = document.getElementById("chat-send");
-
-      function addMessage(text, sender) {
-        const div = document.createElement("div");
-        div.className = "msg " + sender;
-        div.textContent = text;
-        messagesEl.appendChild(div);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
-
-      // ---- Lead funnel state ----
-      let leadMode = false;
-      let leadStep = 0;
-      let leadData = {
-        customerId: "naprapat-demo",
-        name: "",
-        phone: "",
-        issue: "",
-        preferredTime: "",
-      };
-
-      function looksLikeBookingIntent(text) {
-        const t = text.toLowerCase();
-        return (
-          t.includes("boka") ||
-          t.includes("tid") ||
-          t.includes("bokning") ||
-          t.includes("pris") ||
-          t.includes("kostar") ||
-          t.includes("appointment")
-        );
-      }
-
-      function looksLikePhone(text) {
-        const digits = text.replace(/\D/g, "");
-        return digits.length >= 7;
-      }
-
-      async function submitLead() {
-        const payload = {
-          customerId: leadData.customerId,
-          name: leadData.name,
-          phone: leadData.phone,
-          issue: leadData.issue,
-          preferredTime: leadData.preferredTime,
-          message: `${leadData.issue} | Önskad tid: ${leadData.preferredTime}`,
-        };
-
-        const res = await fetch(`${API_BASE}/lead`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const t = await res.text().catch(() => "");
-          throw new Error("Lead submit failed: " + t);
-        }
-      }
-
-      async function callChatAPI(userText) {
-        addMessage("...", "ai");
-        const loadingBubble = messagesEl.lastChild;
-
-        try {
-          const res = await fetch(`${API_BASE}/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: userText, sessionId }),
-          });
-
-          const data = await res.json().catch(() => ({}));
-          messagesEl.removeChild(loadingBubble);
-
-          addMessage(data.reply || "Jag kunde inte svara just nu.", "ai");
-        } catch (err) {
-          console.error(err);
-          messagesEl.removeChild(loadingBubble);
-          addMessage("Fel vid kontakt med servern.", "ai");
-        }
-      }
-
-      async function handleUserMessage(userText) {
-        // Starta lead-flöde när användaren vill boka/pris
-        if (!leadMode && looksLikeBookingIntent(userText)) {
-          leadMode = true;
-          leadStep = 1;
-          addMessage("Toppen! Jag kan hjälpa dig boka. Vad heter du? 😊", "ai");
-          return;
-        }
-
-        // Lead-mode: samla in info steg för steg
-        if (leadMode) {
-          if (leadStep === 1) {
-            leadData.name = userText.trim();
-            leadStep = 2;
-            addMessage(`Tack ${leadData.name}! Vad är ditt telefonnummer?`, "ai");
-            return;
-          }
-
-          if (leadStep === 2) {
-            if (!looksLikePhone(userText)) {
-              addMessage("Jag behöver ett telefonnummer (t.ex. 0701234567). Prova igen:", "ai");
-              return;
-            }
-            leadData.phone = userText.trim();
-            leadStep = 3;
-            addMessage("Vad söker du hjälp för? (t.ex. nacke, rygg, huvudvärk)", "ai");
-            return;
-          }
-
-          if (leadStep === 3) {
-            leadData.issue = userText.trim();
-            leadStep = 4;
-            addMessage("När vill du helst komma? (t.ex. 'tisdag efter 16' / 'morgon denna vecka')", "ai");
-            return;
-          }
-
-          if (leadStep === 4) {
-            leadData.preferredTime = userText.trim();
-
-            try {
-              await submitLead();
-              addMessage("Klart! ✅ Vi har tagit emot din förfrågan och kontaktar dig snart.", "ai");
-            } catch (e) {
-              console.error(e);
-              addMessage("Hmm, något gick fel när vi skulle spara din bokning. Testa igen om en stund.", "ai");
-            }
-
-            // reset
-            leadMode = false;
-            leadStep = 0;
-            leadData = { customerId: "naprapat-demo", name: "", phone: "", issue: "", preferredTime: "" };
-            return;
-          }
-        }
-
-        // Vanlig AI-chat om inte lead-mode
-        await callChatAPI(userText);
-      }
-
-      async function sendMessage() {
-        const text = inputEl.value.trim();
-        if (!text) return;
-
-        addMessage(text, "user");
-        inputEl.value = "";
-
-        await handleUserMessage(text);
-      }
-
-      sendBtn.addEventListener("click", sendMessage);
-      inputEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") sendMessage();
-      });
-
-      // liten start-hälsning
-      addMessage("Hej! 👋 Skriv t.ex. 'jag vill boka en tid' så hjälper jag dig.", "ai");
-    </script>
-  </body>
+  addMessage("Hej! 👋 Skriv t.ex. 'jag vill boka en tid'.", "ai");
+</script>
+</body>
 </html>
+
