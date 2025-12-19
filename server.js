@@ -3,11 +3,15 @@ import cors from "cors";
 import OpenAI from "openai";
 import path from "path";
 import { fileURLToPath } from "url";
+import { Resend } from "resend";
+
 
 const app = express();
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 app.use(cors());
 app.use(express.json());
