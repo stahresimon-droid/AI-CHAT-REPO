@@ -5,13 +5,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Resend } from "resend";
 
-
 const app = express();
+
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const resend = new Resend(process.env.RESEND_API_KEY);
 
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 app.use(cors());
 app.use(express.json());
@@ -40,17 +40,10 @@ app.get("/healthz", (req, res) => {
   res.send("ok");
 });
 
-// ====== LEAD ENDPOINT ======
+// ====== LEAD ENDPOINT (SEND EMAIL VIA RESEND) ======
 app.post("/lead", async (req, res) => {
   try {
-    const {
-      customerId,
-      name,
-      phone,
-      issue,
-      preferredTime,
-      message,
-    } = req.body;
+    const { customerId, name, phone, issue, preferredTime, message } = req.body;
 
     if (!name || !phone) {
       return res.status(400).json({ error: "name och phone krävs" });
@@ -68,10 +61,37 @@ app.post("/lead", async (req, res) => {
 
     console.log("NEW LEAD:", JSON.stringify(lead, null, 2));
 
-    // Här kan vi senare lägga:
-    // - mail (Resend)
-    // - Google Sheets
-    // - CRM
+    // ✅ mail destination (your test inbox)
+    const TO_EMAIL = "stahresimon@gmail.com";
+
+    // If key missing, we still accept lead but warn in logs.
+    if (!process.env.RESEND_API_KEY) {
+      console.warn("RESEND_API_KEY saknas – mail skickas inte.");
+      return res.json({ ok: true, warning: "RESEND_API_KEY missing" });
+    }
+
+    // ✅ Use Resend test sender (works without domain verification)
+    const { error } = await resend.emails.send({
+      from: "onboarding@resend.dev",
+      to: [TO_EMAIL],
+      subject: `Ny bokningsförfrågan (${lead.customerId})`,
+      html: `
+        <h2>Ny bokningsförfrågan</h2>
+        <p><b>Kund:</b> ${lead.customerId}</p>
+        <p><b>Namn:</b> ${lead.name}</p>
+        <p><b>Telefon:</b> ${lead.phone}</p>
+        <p><b>Besvär:</b> ${lead.issue ?? "-"}</p>
+        <p><b>Önskad tid:</b> ${lead.preferredTime ?? "-"}</p>
+        <p><b>Meddelande:</b> ${lead.message ?? "-"}</p>
+        <p><b>Tid:</b> ${lead.createdAt}</p>
+      `,
+    });
+
+    if (error) {
+      console.error("RESEND ERROR:", error);
+      // return 500 so you see it immediately during testing
+      return res.status(500).json({ ok: false, error });
+    }
 
     return res.json({ ok: true });
   } catch (err) {
@@ -116,22 +136,17 @@ Regler:
       ];
     }
 
-    conversations[sessionId].push({
-      role: "user",
-      content: message,
-    });
+    conversations[sessionId].push({ role: "user", content: message });
 
     const response = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: conversations[sessionId],
     });
 
-    const reply = response.choices[0].message.content;
+    const reply =
+      response.choices?.[0]?.message?.content || "Jag kunde inte svara just nu.";
 
-    conversations[sessionId].push({
-      role: "assistant",
-      content: reply,
-    });
+    conversations[sessionId].push({ role: "assistant", content: reply });
 
     return res.json({ reply });
   } catch (err) {
